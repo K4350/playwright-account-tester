@@ -16,6 +16,11 @@ export interface TestResult {
         msisdn: string;
         serviceType: string;
     }>;
+    customerAccounts?: Array<{
+        accountNumber: string;
+        role: string;
+        name: string;
+    }>;
     status: 'Success' | 'Failed - Invalid Credentials' | 'Failed - Network Issue' | 'Failed - MFA Required' | 'Failed - Unknown';
     errorMessage?: string;
 }
@@ -36,6 +41,26 @@ export function generateExcelReport(results: TestResult[], outputPath: string = 
                 .join('\n');
         }
 
+        // Format customer accounts column
+        let customerAccountsFormatted = '';
+        
+        if (result.customerAccounts && result.customerAccounts.length > 0) {
+            const roleNames: { [key: string]: string } = {
+                'AH': 'Account Holder',
+                'LU': 'Linked User',
+                'AU': 'Authorized User'
+            };
+            
+            customerAccountsFormatted = result.customerAccounts
+                .map((acc, index) => {
+                    const roleName = roleNames[acc.role] || acc.role;
+                    return `${roleName} (${acc.role}): ${acc.accountNumber} (${acc.name})`;
+                })
+                .join('\n');
+        } else {
+            customerAccountsFormatted = result.status === 'Success' ? '1 Account (No switching)' : '';
+        }
+
         excelData.push({
             'SL No': result.row,
             'Username': result.username,
@@ -44,6 +69,7 @@ export function generateExcelReport(results: TestResult[], outputPath: string = 
             'Birth Date': result.birthDate || '',
             'Phone Number': result.phoneNumber || '',
             'productType': result.productType || (result.status === 'Success' ? 'N/A' : 'Failed'),
+            'Customer Accounts': customerAccountsFormatted,
             'accountType': accountTypeFormatted
         });
     });
@@ -60,16 +86,25 @@ export function generateExcelReport(results: TestResult[], outputPath: string = 
         { wch: 11.66 }, // E - Birth Date
         { wch: 13.66 }, // F - Phone Number
         { wch: 23.00 }, // G - productType
-        { wch: 29.33 }  // H - accountType
+        { wch: 40.00 }, // H - Customer Accounts
+        { wch: 29.33 }  // I - accountType
     ];
 
-    // Enable text wrapping for accountType column
+    // Enable text wrapping for Customer Accounts and accountType columns
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
     for (let row = range.s.r + 1; row <= range.e.r; row++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: 7 }); // Column H (accountType)
-        if (worksheet[cellAddress]) {
-            if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
-            worksheet[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
+        // Column H (Customer Accounts)
+        const customerAccountsCell = XLSX.utils.encode_cell({ r: row, c: 7 });
+        if (worksheet[customerAccountsCell]) {
+            if (!worksheet[customerAccountsCell].s) worksheet[customerAccountsCell].s = {};
+            worksheet[customerAccountsCell].s.alignment = { wrapText: true, vertical: 'top' };
+        }
+        
+        // Column I (accountType)
+        const accountTypeCell = XLSX.utils.encode_cell({ r: row, c: 8 });
+        if (worksheet[accountTypeCell]) {
+            if (!worksheet[accountTypeCell].s) worksheet[accountTypeCell].s = {};
+            worksheet[accountTypeCell].s.alignment = { wrapText: true, vertical: 'top' };
         }
     }
 
@@ -91,7 +126,7 @@ export function generateCSVReport(results: TestResult[], outputPath: string = '.
     const csvRows: string[] = [];
     
     // Header
-    csvRows.push('SL No,Username,Password,Name,Birth Date,Phone Number,productType,accountType');
+    csvRows.push('SL No,Username,Password,Name,Birth Date,Phone Number,productType,Customer Accounts,accountType');
 
     results.forEach(result => {
         // Format accountType column with all accounts in numbered list with pipe-separated values
@@ -105,6 +140,26 @@ export function generateCSVReport(results: TestResult[], outputPath: string = '.
                 .join('\n');
         }
 
+        // Format customer accounts column
+        let customerAccountsFormatted = '';
+        
+        if (result.customerAccounts && result.customerAccounts.length > 0) {
+            const roleNames: { [key: string]: string } = {
+                'AH': 'Account Holder',
+                'LU': 'Linked User',
+                'AU': 'Authorized User'
+            };
+            
+            customerAccountsFormatted = result.customerAccounts
+                .map((acc, index) => {
+                    const roleName = roleNames[acc.role] || acc.role;
+                    return `${roleName} (${acc.role}): ${acc.accountNumber} (${acc.name})`;
+                })
+                .join('\n');
+        } else {
+            customerAccountsFormatted = result.status === 'Success' ? '1 Account (No switching)' : '';
+        }
+
         csvRows.push([
             result.row,
             `"${result.username}"`,
@@ -113,6 +168,7 @@ export function generateCSVReport(results: TestResult[], outputPath: string = '.
             `"${result.birthDate || ''}"`,
             `"${result.phoneNumber || ''}"`,
             `"${result.productType || (result.status === 'Success' ? 'N/A' : 'Failed')}"`,
+            `"${customerAccountsFormatted}"`,
             `"${accountTypeFormatted}"`
         ].join(','));
     });

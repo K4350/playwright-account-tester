@@ -212,6 +212,9 @@ users.forEach((user: any, index: number) => {
             const billingAccounts =
                 body.accountDetails.accountDetail.billingAccount;
 
+            // Extract customer accounts (for account switching info)
+            const customerAccounts = body.customerAccounts || [];
+
             const extractedAccounts: any[] = [];
 
             for (const account of billingAccounts) {
@@ -268,6 +271,7 @@ users.forEach((user: any, index: number) => {
                 productType: productType,
                 accountCount: extractedAccounts.length,
                 accounts: extractedAccounts,
+                customerAccounts: customerAccounts.length > 1 ? customerAccounts : undefined,
                 status: 'Success'
             };
             
