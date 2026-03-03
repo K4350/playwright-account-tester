@@ -6,3 +6,17 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Environment variables (contains sensitive data)
+.env
+
+# Test data with credentials
+/testData/*.xlsx
+/testData/*.csv
+
+# Generated reports
+test-summary-report.xlsx
+test-summary-report.csv
+
+# Temporary test result JSON files
+test-results/json-results/

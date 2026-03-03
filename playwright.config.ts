@@ -1,12 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+import config from './utils/config';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -14,17 +7,17 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   /* Run tests in files in parallel */
-  fullyParallel: true,
+  fullyParallel: config.test.workers > 1,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: 1, // Run sequentially for reliable report generation
+  workers: config.test.workers, // From config (default: 1 for sequential)
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Increase timeout for slow networks */
-  timeout: 60000,
+  timeout: config.timeouts.test,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
@@ -34,8 +27,8 @@ export default defineConfig({
     trace: 'on-first-retry',
     
     /* Set navigation timeout */
-    navigationTimeout: 30000,
-    actionTimeout: 10000,
+    navigationTimeout: config.timeouts.navigation,
+    actionTimeout: config.timeouts.action,
     
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',

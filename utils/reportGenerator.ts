@@ -6,6 +6,9 @@ export interface TestResult {
     row: number;
     username: string;
     password?: string;
+    name?: string;
+    birthDate?: string;
+    phoneNumber?: string;
     productType: string;
     accountCount: number;
     accounts: Array<{
@@ -37,6 +40,9 @@ export function generateExcelReport(results: TestResult[], outputPath: string = 
             'SL No': result.row,
             'Username': result.username,
             'Password': result.password || '',
+            'Name': result.name || '',
+            'Birth Date': result.birthDate || '',
+            'Phone Number': result.phoneNumber || '',
             'productType': result.productType || (result.status === 'Success' ? 'N/A' : 'Failed'),
             'accountType': accountTypeFormatted
         });
@@ -45,19 +51,22 @@ export function generateExcelReport(results: TestResult[], outputPath: string = 
     // Create workbook and worksheet
     const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-    // Set column widths
+    // Set column widths (exact widths as specified)
     worksheet['!cols'] = [
-        { wch: 8 },  // SL No
-        { wch: 40 }, // Username
-        { wch: 15 }, // Password
-        { wch: 25 }, // productType
-        { wch: 60 }  // accountType (wider for multi-line content)
+        { wch: 8.83 },  // A - SL No
+        { wch: 35.83 }, // B - Username
+        { wch: 10.00 }, // C - Password
+        { wch: 21.83 }, // D - Name
+        { wch: 11.66 }, // E - Birth Date
+        { wch: 13.66 }, // F - Phone Number
+        { wch: 23.00 }, // G - productType
+        { wch: 29.33 }  // H - accountType
     ];
 
     // Enable text wrapping for accountType column
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
     for (let row = range.s.r + 1; row <= range.e.r; row++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: 4 }); // Column E (accountType)
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: 7 }); // Column H (accountType)
         if (worksheet[cellAddress]) {
             if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
             worksheet[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
@@ -82,7 +91,7 @@ export function generateCSVReport(results: TestResult[], outputPath: string = '.
     const csvRows: string[] = [];
     
     // Header
-    csvRows.push('SL No,Username,Password,productType,accountType');
+    csvRows.push('SL No,Username,Password,Name,Birth Date,Phone Number,productType,accountType');
 
     results.forEach(result => {
         // Format accountType column with all accounts in numbered list with pipe-separated values
@@ -100,6 +109,9 @@ export function generateCSVReport(results: TestResult[], outputPath: string = '.
             result.row,
             `"${result.username}"`,
             `"${result.password || ''}"`,
+            `"${result.name || ''}"`,
+            `"${result.birthDate || ''}"`,
+            `"${result.phoneNumber || ''}"`,
             `"${result.productType || (result.status === 'Success' ? 'N/A' : 'Failed')}"`,
             `"${accountTypeFormatted}"`
         ].join(','));
