@@ -3,6 +3,32 @@
 ## Overview
 Automated Playwright-based testing framework that extracts user account data from API responses, with advanced retry logic, smart error detection, and configurable performance settings.
 
+## 📋 Prerequisites
+
+**⚠️ First Time Setup?** See [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed installation instructions.
+
+**Required:**
+- Node.js 16+ ([Download](https://nodejs.org/))
+- npm (comes with Node.js)
+- Git ([Download](https://git-scm.com/))
+
+**Quick Install:**
+```bash
+# Clone repository
+git clone <repository-url>
+cd playwright-account-tester
+
+# Install dependencies
+npm install
+
+# Install Playwright browser
+npx playwright install chromium
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
+```
+
 ## Features
 
 ### ✅ Auto-Retry & Error Detection
