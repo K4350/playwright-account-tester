@@ -14,16 +14,23 @@ if (!fs.existsSync(resultsDir)) {
     fs.mkdirSync(resultsDir, { recursive: true });
 }
 
-// Clean up old JSON results before tests start
-test.beforeAll(async () => {
-    const files = fs.readdirSync(resultsDir);
-    for (const file of files) {
-        if (file.endsWith('.json')) {
-            fs.unlinkSync(path.join(resultsDir, file));
+// Clean up old JSON results ONLY if this is a fresh test run
+// Check if there are existing result files - if yes, don't clean up (worker restart scenario)
+const cleanupFlagFile = path.join(resultsDir, '.cleanup-done');
+const existingResults = fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'));
+
+if (existingResults.length === 0 && !fs.existsSync(cleanupFlagFile)) {
+    try {
+        // Try to create the flag file exclusively (fails if exists)
+        fs.writeFileSync(cleanupFlagFile, Date.now().toString(), { flag: 'wx' });
+        console.log('🧹 Cleaned up old test results');
+    } catch (error: any) {
+        // Flag file already exists - another worker already did cleanup
+        if (error.code !== 'EEXIST') {
+            console.error('Cleanup error:', error);
         }
     }
-    console.log('🧹 Cleaned up old test results');
-});
+}
 
 users.forEach((user: any, index: number) => {
 
@@ -35,10 +42,19 @@ users.forEach((user: any, index: number) => {
         for (let attempt = 1; attempt <= config.test.retryAttempts; attempt++) {
             if (attempt > 1) {
                 console.log(`\n🔄 Retry attempt ${attempt}/${config.test.retryAttempts} for ${user.Username}`);
-            }
-
-            // Logout (conditional based on config)
-            if (!config.test.skipLogout) {
+                
+                // Always logout on retry attempts to ensure clean state
+                try {
+                    await page.goto(config.urls.logout, {
+                        timeout: config.timeouts.logout,
+                        waitUntil: 'domcontentloaded'
+                    });
+                    await page.waitForTimeout(1000); // Give time for logout to complete
+                } catch (error) {
+                    console.log('⚠ Logout error on retry (continuing anyway)');
+                }
+            } else if (!config.test.skipLogout) {
+                // Only logout on first attempt if skipLogout is false
                 try {
                     await page.goto(config.urls.logout, {
                         timeout: config.timeouts.logout,
@@ -343,6 +359,9 @@ users.forEach((user: any, index: number) => {
 
 // Generate reports after all tests complete
 test.afterAll(async () => {
+    // Small delay to allow other workers to finish writing their results
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     console.log('\n📊 Generating test summary reports...\n');
     
     // Read all JSON result files
@@ -350,9 +369,13 @@ test.afterAll(async () => {
     const files = fs.readdirSync(resultsDir);
     
     for (const file of files) {
-        if (file.endsWith('.json')) {
-            const content = fs.readFileSync(path.join(resultsDir, file), 'utf-8');
-            testResults.push(JSON.parse(content));
+        if (file.endsWith('.json') && !file.startsWith('.')) {
+            try {
+                const content = fs.readFileSync(path.join(resultsDir, file), 'utf-8');
+                testResults.push(JSON.parse(content));
+            } catch (error) {
+                console.error(`Error reading ${file}:`, error);
+            }
         }
     }
     
@@ -379,4 +402,13 @@ test.afterAll(async () => {
     console.log(`   ✅ Passed: ${successCount}`);
     console.log(`   ❌ Failed: ${failedCount}`);
     console.log('\n');
+    
+    // Clean up the flag file
+    try {
+        if (fs.existsSync(cleanupFlagFile)) {
+            fs.unlinkSync(cleanupFlagFile);
+        }
+    } catch (error) {
+        // Ignore cleanup errors
+    }
 });
