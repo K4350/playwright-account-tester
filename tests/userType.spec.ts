@@ -76,6 +76,11 @@ users.forEach((user: any, index: number) => {
             try {
                 await page.getByRole('textbox', { name: 'Enter email address' }).fill(user.Username);
                 await page.getByRole('textbox', { name: 'Password' }).fill(user.Password);
+                console.log('✓ Credentials filled successfully');
+                
+                // Wait for button to become enabled (form validation)
+                console.log('Waiting for login button to become enabled...');
+                await page.waitForTimeout(2000); // Give time for validation
             } catch (error) {
                 console.log('❌ Failed to fill login form');
                 lastError = {
@@ -134,11 +139,52 @@ users.forEach((user: any, index: number) => {
                     { timeout: config.timeouts.login }
                 ).catch(() => null);
 
-                // Click login button
-                try {
-                    await page.getByRole('button', { name: 'Log in' }).click({ timeout: config.timeouts.action });
-                } catch (error) {
-                    console.log('⚠ Login button click timeout (but continuing...)');
+                // Click login button - try multiple selectors and wait for enabled state
+                let buttonClicked = false;
+                const buttonSelectors = [
+                    { selector: () => page.locator('button[type="submit"][name="action"]'), desc: 'Submit button with action attribute' },
+                    { selector: () => page.locator('button[type="submit"]'), desc: 'Submit button' },
+                    { selector: () => page.getByRole('button', { name: 'Log in' }), desc: 'Button with text "Log in"' },
+                    { selector: () => page.getByRole('button', { name: /log in/i }), desc: 'Button with text containing "log in" (case insensitive)' },
+                    { selector: () => page.locator('button:has-text("Log in")'), desc: 'Button containing "Log in"' },
+                ];
+
+                for (const { selector, desc } of buttonSelectors) {
+                    try {
+                        console.log(`Trying: ${desc}`);
+                        const button = selector();
+                        
+                        // Wait for button to be visible and enabled
+                        await button.waitFor({ state: 'visible', timeout: 3000 });
+                        
+                        // Wait for button to NOT be disabled
+                        await button.waitFor({ state: 'attached', timeout: 5000 });
+                        
+                        // Check if button is enabled by waiting for it to not have disabled attribute
+                        await page.waitForFunction(
+                            (btn) => {
+                                const el = document.querySelector(btn);
+                                return el && !el.hasAttribute('disabled');
+                            },
+                            'button[type="submit"]',
+                            { timeout: 10000 }
+                        );
+                        
+                        console.log('✓ Button is now enabled');
+                        // Click without waiting for navigation (login triggers OAuth redirect)
+                        await button.click({ timeout: 5000, noWaitAfter: true });
+                        console.log('✓ Login button clicked successfully');
+                        buttonClicked = true;
+                        break;
+                    } catch (error) {
+                        console.log(`  ✗ Failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                        // Try next selector
+                    }
+                }
+
+                if (!buttonClicked) {
+                    console.log('⚠ Could not find/click login button with any selector');
+                    throw new Error('Login button not found or remained disabled');
                 }
 
                 // Wait for main API response

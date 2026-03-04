@@ -32,6 +32,9 @@ export default defineConfig({
     
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',
+    
+    /* Run in headed mode to see browser */
+    headless: false,
   },
 
   /* Configure projects for major browsers */
